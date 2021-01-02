@@ -4,6 +4,10 @@
 docker-19.03.14
 etcd-v3.4.13-linux-amd64.tar.gz
 kubernetes v1.19.4
+calico  v3.17.1
+coredns 1.8.0
+metrics-server 0.3.7
+dashboard v2.1.0
 ```
 
 # 1. Initialization nodes
