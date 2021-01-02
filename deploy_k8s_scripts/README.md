@@ -1,3 +1,8 @@
+# Version
+docker-19.03.14
+etcd-v3.4.13-linux-amd64.tar.gz
+kubernetes v1.19.4
+
 # 1. Initialization nodes
 
 ```sh
