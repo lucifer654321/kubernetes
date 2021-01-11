@@ -1,0 +1,32 @@
+---
+# tasks file for roles/kubeconfig
+- name: 创建工作目录
+  file: dest={{item}} state=directory
+  with_items:
+    - "{{remote_k8s_work_dir}}/kubeconfig"
+    - "{{remote_k8s_work_dir}}/pki"
+
+
+- name: 创建本地kubeconfig目录
+  local_action: file dest={{local_kubeconfig_dir}} state=directory
+
+- name: 分发kubelet
+  copy: src={{item}} dest={{remote_bin_dir}}
+  with_items:
+    - "{{local_bin_dir_master}}/kubelet"
+
+- name: 分发证书
+  copy: src={{item}} dest={{remote_k8s_work_dir}}/pki/
+  with_fileglob:
+    - "{{local_cert_dir}}/k8s/*"
+
+- name: 创建kubeconfig配置文件
+- block:
+    template: src=generate_kubeconfig.sh.j2 dest={{remote_k8s_work_dir}}/kubeconfig/generate_kubeconfig.sh
+    shell: cd {{remote_k8s_work_dir}}/kubeconfig && /usr/bin/bash generate_kubeconfig.sh
+    synchronize: src={{remote_k8s_work_dir}}/kubeconfig/{{ item }} dest={{local_kubeconfig_dir}} mode=pull
+    with_items:
+      - 'admin.kubeconfig'
+      - 'kube-controller-manager.kubeconfig'
+      - 'kube-scheduler.kubeconfig'
+      - 'kube-proxy.kubeconfig'

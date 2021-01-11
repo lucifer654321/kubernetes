@@ -1,0 +1,63 @@
+---
+# tasks file for addons
+- name: 允许Node加入集群
+  ignore_errors: yes
+  shell: kubectl certificate approve $(kubectl get csr |awk '/Pending/{print $1}')
+
+- name: 拷贝YAML文件到Master
+  template: src={{item}} dest={{remote_k8s_work_dir}}/{{ item.split('.')[:-1].join('.')}}
+  with_fileglob:
+    - "calico.yaml.j2"
+    - "coredns.yml.j2"
+    - "components.yaml.j2"
+    - "recommended.yaml.j2"
+    - "dashboard-admin.yaml.j2"
+
+      #- name: 部署Calico,Dashboard,CoreDNS,Ingress
+      #  ignore_errors: yes
+      #  shell: |
+      #         cd {{remote_k8s_work_dir}}
+      #         for yaml in $(ls *.{yaml,yml});do kubectl apply -f $yaml;done
+
+- name: 部署Calico
+  ignore_errors: yes
+  shell: cd {{remote_k8s_work_dir}} && kubectl apply -f calico.yaml
+
+- name: 部署CoreDNS
+  ignore_errors: yes
+  shell: cd {{remote_k8s_work_dir}} && kubectl apply -f coredns.yml
+
+- name: 部署Metrics-server
+  ignore_errors: yes
+  shell: cd {{remote_k8s_work_dir}} && kubectl apply -f components.yaml
+
+- name: 部署Dashboard
+  ignore_errors: yes
+  shell: cd {{remote_k8s_work_dir}} && kubectl apply -f recommended.yaml
+
+- name: 创建管理员账户
+  ignore_errors: yes
+  shell: cd {{remote_k8s_work_dir}} && kubectl apply -f dashboard-admin.yaml
+
+- name: 查看Pod状态
+  shell: kubectl get all --all-namespaces
+  register: getall
+- debug: var=getall.stdout_lines
+
+  #- name: 创建Dashboard管理员令牌
+  #  ignore_errors: yes
+  #  shell: |
+  #         kubectl create serviceaccount dashboard-admin -n kubernetes-dashboard
+  #         kubectl create clusterrolebinding dashboard-admin --clusterrole=cluster-admin --serviceaccount=kubernetes-dashboard:dashboard-admin
+
+- name: 获取Dashboard管理员令牌
+  ignore_errors: yes
+  shell: |
+         web='https://{{vip}}:30001'
+         token=$(kubectl describe secrets -n kubernetes-dashboard \
+         $(kubectl get secret -n kubernetes-dashboard | awk '/dashboard-admin/{print $1}') |awk '/^token/{print $2}')
+         echo "访问地址--->$web"
+         echo "令牌内容--->$token"
+  register: ui
+- name: Kubernetes Dashboard登录信息
+  debug: var=ui.stdout_lines

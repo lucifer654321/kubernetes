@@ -1,0 +1,54 @@
+#!/bin/bash
+echo "#### Config Bootstrap ####"
+
+[ -d "/root/.kube" ] || mkdir -p /root/.kube
+ADMIN_CONFIG="/root/.kube/config"
+
+[ -f ${ADMIN_CONFIG} ] || cp {{remote_k8s_conf_dir}}/admin.kubeconfig ${ADMIN_CONFIG}
+
+# 授予kube-apiserver访问kubelet API的权限
+kubectl create clusterrolebinding kube-apiserver:kubelet-apis \
+--clusterrole=system:kubelet-api-admin --user kube-apiserver
+
+ALL_NAMES=({% for ip in groups.k8s %} { hostvars[ip].node_name } {% endfor %})
+
+for all_name in ${ALL_NAMES[@]}
+do
+    echo ">>> ${all_name}"
+
+    # 创建 token
+    export BOOTSTRAP_TOKEN=$(kubeadm token create \
+      --description kubelet-bootstrap-token \
+      --groups system:bootstrappers:${all_name} \
+      --kubeconfig ~/.kube/config)
+
+    # 设置集群参数
+    kubectl config set-cluster kubernetes \
+      --certificate-authority={{k8s_cert_dir}}/ca.pem \
+      --embed-certs=true \
+      --server={{apiserver}} \
+      --kubeconfig=bootstrap/kubelet-bootstrap-${all_name}.kubeconfig
+
+    # 设置客户端认证参数
+    kubectl config set-credentials kubelet-bootstrap \
+      --token={{bootstrap_token}} \
+      --kubeconfig=bootstrap/kubelet-bootstrap-${all_name}.kubeconfig
+
+    # 设置上下文参数
+    kubectl config set-context default \
+      --cluster=kubernetes \
+      --user=kubelet-bootstrap \
+      --kubeconfig=bootstrap/kubelet-bootstrap-${all_name}.kubeconfig
+
+    # 设置默认上下文
+    kubectl config use-context default \
+      --kubeconfig=bootstrap/kubelet-bootstrap-${all_name}.kubeconfig
+done
+
+# 创建权限
+kubectl create clusterrolebinding kubelet-bootstrap \
+--clusterrole=system:node-bootstrapper \
+--group=system:bootstrappers
+
+# 创建自动approve
+kubectl apply -f csr-crb.yaml

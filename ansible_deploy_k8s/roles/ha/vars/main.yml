@@ -1,0 +1,4 @@
+---
+# vars file for ha
+# keepalived
+k8s_ha_pass: 412f7dc3bfed32194d1600c483e10ad1d

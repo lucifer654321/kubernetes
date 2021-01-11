@@ -1,0 +1,58 @@
+---
+# tasks file for binfiles
+- name: 创建本地目录
+  file: dest={{ item }} state=directory
+  with_items:
+    - '{{local_bin_dir}}/docker'
+    - '{{local_bin_dir}}/etcd'
+    - '{{local_bin_dir_master}}'
+    - '{{local_bin_dir_worker}}'
+
+- name: 解压Docker二进制文件
+  unarchive:
+    src: "{{ item }}"
+    dest: "{{local_bin_dir}}/docker"
+    extra_opts:
+      - --strip-components=1
+  with_fileglob:
+    - "{{ software_dir }}/docker-*.tgz"
+
+- name: 获取etcd二进制文件路径
+  find: paths={{ software_dir }} patterns="etcd*" file_type=file
+  register: etcd_dir
+
+- name: 解压etcd二进制文件
+  unarchive:
+    src: "{{ item }}"
+    dest: "{{local_bin_dir}}/etcd"
+    extra_opts:
+      - --strip-components=1
+      - "{{ etcd_dir.files[0].path.split('/')[-1].split('.tar')[0] }}/etcd"
+      - "{{ etcd_dir.files[0].path.split('/')[-1].split('.tar')[0] }}/etcdctl"
+  with_fileglob:
+    - "{{ software_dir }}/etcd-v*.tar.gz"
+
+- name: 解压k8s组件二进制文件
+  unarchive:
+    src: "{{ software_dir }}/kubernetes-server-linux-amd64.tar.gz"
+    dest: "{{local_bin_dir}}/k8s"
+    extra_opts:
+      - --strip-components=3
+      - "kubernetes/server/bin/kubectl"
+      - "kubernetes/server/bin/kubeadm"
+      - "kubernetes/server/bin/kube-apiserver"
+      - "kubernetes/server/bin/kube-controller-manager"
+      - "kubernetes/server/bin/kube-scheduler"
+      - "kubernetes/server/bin/kubelet"
+      - "kubernetes/server/bin/kube-proxy"
+
+- name: 移动k8s组件二进制文件
+  copy: src={{ item.src }} dest={{ item.dest }} mode=755
+  with_items:
+    - {src: "{{local_bin_dir}}/k8s/kubectl", dest: "{{local_bin_dir_master}}"}
+    - {src: "{{local_bin_dir}}/k8s/kubeadm", dest: "{{local_bin_dir_master}}"}
+    - {src: "{{local_bin_dir}}/k8s/kube-apiserver", dest: "{{local_bin_dir_master}}"}
+    - {src: "{{local_bin_dir}}/k8s/kube-controller-manager", dest: "{{local_bin_dir_master}}"}
+    - {src: "{{local_bin_dir}}/k8s/kube-scheduler", dest: "{{local_bin_dir_master}}"}
+    - {src: "{{local_bin_dir}}/k8s/kubelet", dest: "{{local_bin_dir_worker}}"}
+    - {src: "{{local_bin_dir}}/k8s/kube-proxy", dest: "{{local_bin_dir_worker}}"}

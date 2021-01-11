@@ -1,0 +1,82 @@
+# 本地临时目录
+local_ssh_dir: /tmp/k8s/ssh
+local_bin_dir: /tmp/k8s/bin
+local_bin_dir_master: /tmp/k8s/bin/k8s/master
+local_bin_dir_worker: /tmp/k8s/bin/k8s/worker
+local_cert_dir: /tmp/k8s/cert
+local_bootstrap_dir: /tmp/k8s/bootstrap
+local_kubeconfig_dir: /tmp/k8s/kubeconfig
+local_download_base_dir: /tmp/k8s/binary_pkg
+
+var_download_tmp_relative_dir_k8s: "kubernetes/server/bin"
+var_download_tmp_relative_dir_etcd: "etcd-{{var_ver_etcd}}-linux-amd64"
+
+# 安装目录 
+software_dir: '/root/binary_pkg'
+
+# 系统目录
+remote_bin_dir: /usr/local/bin
+remote_systemd_dir: /usr/lib/systemd/system
+
+# kubernetes组件目录
+remote_k8s_work_dir: /data/kubernetes
+remote_k8s_logs_dir: "{{remote_k8s_work_dir}}/logs"
+remote_k8s_images_dir: "{{remote_k8s_work_dir}}/images"
+
+# k8s相关目录
+remote_k8s_conf_dir: /etc/kubernetes
+remote_k8s_cert_dir: "{{remote_k8s_conf_dir}}/pki"
+remote_k8s_work_dir: "{{remote_k8s_work_dir}}/k8s"
+
+# docker相关目录
+remote_docker_conf_dir: /etc/docker
+remote_docker_work_dir: "{{remote_k8s_work_dir}}/docker"
+
+# etcd相关目录
+remote_etcd_conf_dir: /etc/etcd
+remote_etcd_cert_dir: "{{remote_etcd_conf_dir}}/ssl"
+remote_etcd_work_dir: "{{remote_k8s_work_dir}}/etcd"
+
+# ha相关目录
+remote_keepalived_conf_dir: /etc/keepalived
+remote_keepalived_work_dir: "{{remote_k8s_work_dir}}/keepalived"
+remote_haproxy_conf_dir: /etc/haproxy
+remote_haproxy_work_dir: "{{remote_k8s_work_dir}}/haproxy"
+
+# k8s操作目录
+remote_k8s_yaml_dir: "{{remote_k8s_work_dir}}/yaml"
+remote_k8s_config_path: "$HOME/.kube/config"
+
+# Calico相关目录
+remote_cni_conf_dir: /etc/cni/net.d
+remote_cni_bin_dir: /opt/cni/bin
+
+# 集群网络
+service_cidr: '10.20.0.0/16'
+cluster_dns: '10.20.0.10'   # 与roles/addons/files/coredns.yaml中IP一致，并且是service_cidr中的IP
+pod_cidr: '10.244.0.0/16' # 与roles/addons/files/kube-flannel.yaml中网段一致
+service_nodeport_range: '30000-32767'
+cluster_domain: 'cluster.local'
+bootstrap_token: '41f7e4ba8b7be874fcff18bf5cf41a7c'
+
+# 高可用，如果部署单Master，该项忽略
+vip: '192.168.49.200'
+vip_port: '16443'
+api_port: '6443'
+apiserver: '{{vip}}:{{vip_port}}'
+nic: 'ens32'
+
+# 自签证书可信任IP列表，为方便扩展，可添加多个预留IP
+cert_hosts:
+  # 包含所有LB、VIP、Master IP和service_cidr的第一个IP
+  k8s:
+    - 10.20.0.1
+    - 192.168.49.30
+    - 192.168.49.33
+    - 192.168.49.34
+    - 192.168.49.200
+  # 包含所有etcd节点IP
+  etcd:
+    - 192.168.49.30
+    - 192.168.49.33
+    - 192.168.49.34

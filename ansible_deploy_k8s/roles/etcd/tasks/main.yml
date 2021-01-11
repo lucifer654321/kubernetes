@@ -1,0 +1,36 @@
+---
+# tasks file for etcd
+- name: 创建工作目录
+  file: dest={{ item }} state=directory
+  with_items:
+    - "{{remote_etcd_work_dir}}"
+    - "{{remote_etcd_cert_dir}}"
+
+- name: 移动etcd二进制文件
+  copy: src={{item}} dest={{bin_dir}}
+  with_fileglob:
+    - "{{local_bin_dir}}/etcd/*"
+
+- name: 分发证书
+  copy: src=etcd_cert/{{ item }} dest={{remote_etcd_cert_dir}}
+  with_items:
+    - etcd-ca.pem
+    - etcd.pem
+    - etcd-key.pem
+
+- name: 分发etcd配置文件
+  template: src=etcd.conf.j2 dest={{remote_etcd_conf_dir}}/etcd.conf
+
+- name: 分发service文件
+  template: src=etcd.service.j2 dest={{remote_systemd_dir}}/etcd.service
+
+- name: 启动etcd
+  systemd: name=etcd state=restarted enabled=yes daemon_reload=yes
+
+- name: 分发etcd验证脚本
+  template: src=etcd.sh.j2 dest={{remote_etcd_work_dir}}/etcd.sh mode=u+x
+
+- name: 获取etcd集群状态
+  shell: /bin/bash {{remote_etcd_work_dir}}/etcd.sh
+  register: status
+- debug: var=status.stdout_lines

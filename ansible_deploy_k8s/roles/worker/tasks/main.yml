@@ -1,0 +1,68 @@
+---
+# tasks file for worker
+- name: 创建工作目录
+  file: dest={{ item }} state=directory
+  with_items:
+    - "{{remote_cni_conf_dir}}"
+    - "{{remote_cni_bin_dir}}"
+    - "{{remote_k8s_cert_dir}}"
+    - "{{remote_k8s_work_dir}}"
+    - "{{remote_k8s_logs_dir}}"
+
+- name: 分发并解压cni插件二进制包
+  unarchive: src={{ item }} dest={{remote_cni_bin_dir}}
+  with_fileglob:
+    - "{{ software_dir }}/cni-plugins-*.tgz"
+
+- name: 移动k8s node二进制文件
+  copy: src={{local_bin_dir_worker}}/{{item}} dest={{remote_bin_dir}}
+  with_fileglob:
+    - kubelet
+    - kube-proxy
+
+- name: 分发k8s证书
+  copy: src=k8s_cert/{{ item }} dest={{remote_k8s_cert_dir}}
+  with_items:
+    - ca.pem
+    - kube-proxy.pem
+    - kube-proxy-key.pem
+
+- name: 分发kubeconfig
+  copy: src={{local_kubeconfig_dir}}/{{ item }} dest={{remote_k8s_conf_dir}}
+  with_items:
+    - kube-proxy.kubeconfig
+
+- name: 分发bootstrap文件
+  copy: src={{local_bootstrap_dir}}/{{item}} dest={{remote_k8s_conf_dir}}/kubelet-bootstrap.kubeconfig
+  with_item:
+    -- kubelet-bootstrap-{{node_name}}.kubeconfig
+
+- name: 分发k8s配置文件
+  template: src={{ item }} dest={{remote_k8s_conf_dir}}/{{ item.split('.')[:-1]|join('.') }}
+  with_items:
+    - kubelet-config.yml.j2
+    - kubelet.conf.j2
+    - kube-proxy-config.yml.j2
+    - kube-proxy.conf.j2
+
+- name: 分发service文件
+  template: src={{ item }} dest={{remote_systemd_dir}}/{{ item.split('.')[:-1]|join('.') }}
+  with_items:
+    - kubelet.service.j2
+    - kube-proxy.service.j2
+
+- name: 启动服务
+  systemd: name={{item}} state=restarted enabled=yes daemon-reload=yes
+  with_items:
+    - kubelet
+    - kube-proxy
+
+- name: 分发预准备镜像
+  unarchive: src={{ software_dir }}/image.tar.gz dest={{remote_k8s_images_dir}}
+
+- name: 导入镜像
+  docker_image:
+    load_path: {{item}}
+    source: load
+  with_fileglob:
+    - "{{remote_k8s_images_dir}}/*"

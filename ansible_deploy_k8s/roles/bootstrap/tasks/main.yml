@@ -1,0 +1,18 @@
+---
+# tasks file for bootstrap
+- name: 创建工作目录
+  file: dest={{ item }} state=directory
+  with_items:
+    - "{{remote_k8s_work_dir}}/bootstrap"
+
+- name: 分发脚本文件
+  template: src=bootstrap.sh.j2 dest={{remote_k8s_work_dir}}/bootstrap.sh
+
+- name: 分发自动approve csr配置文件
+  copy: src=csr-crb.yaml dest={{remote_k8s_work_dir}}
+
+- name: 执行脚本文件
+  shell: cd {{remote_k8s_work_dir}} && /usr/bin/bash bootstrap.sh
+
+- name: 将创建的bootstrap.kubeconfig文件传回本地
+  synchronize: src={{ k8s_work_dir }}/bootstrap/ dest={{local_bootstrap_dir}} mode=pull

@@ -1,0 +1,29 @@
+---
+# tasks file for ha
+- name: 安装keepalived+haproxy
+  yum:
+    name:
+      - keepalived
+      - haproxy
+    state: latest
+
+- name: 设置haproxy配置文件
+  template: src=haproxy.cfg.j2 dest={{remote_haproxy_conf_dir}}/haproxy.cfg
+
+- name: 启动haproxy
+  systemd:
+    name: haproxy
+    state: started
+    enabled: yes
+
+- name: 设置keepalived配置文件
+  template: src={{item}} dest={{remote_keepalived_conf_dir}}/{{item.split('.')[:-1].join('.')}}
+  with_items:
+    - check_apiserver.sh.j2
+    - keepalived.conf.j2
+
+- name: 启动keepalived
+  systemd:
+    name: keepalived
+    state: started
+    enabled: yes

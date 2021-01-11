@@ -1,0 +1,91 @@
+#!/bin/bash
+
+root_dir=$(pwd|sed 's#roles/tls/template##')
+K8S_COMPONENTES=(etcd admin kube-apiserver kube-controller-manager kube-scheduler kube-proxy front-proxy)
+
+echo "######################################################"
+echo "#### Create PEM Files with k8s cluster Components ####"
+echo "######################################################"
+echo
+echo
+
+for COM in ${K8S_COMPONENTES[@]}
+do
+	if [ $COM == "etcd" ];then
+		cd {{local_cert_dir}}/etcd
+		[ -f "etcd-ca.pem" ] && F_CODE=0 || F_CODE=1
+		CA_CSR="${COM}-ca-csr.json"
+		CA_PEM_NAME="${COM}-ca"
+		CA="${COM}-ca.pem"
+		CA_KEY="${COM}-ca-key.pem"
+		CA_CONFIG="etcd-ca-config.json"
+ 		PROFILE="etcd"
+		CSR_JSON="${COM}-csr.json"
+		PEM_NAME="${COM}"
+	elif [ $COM  == "front-proxy" ];then
+                cd {{local_cert_dir}}/k8s
+		[ -f "front-proxy-ca.pem" ] && F_CODE=0 || F_CODE=1
+		CA_CSR="${COM}-ca-csr.json"
+		CA_PEM_NAME="${COM}-ca"
+		CA="${COM}-ca.pem"
+		CA_KEY="${COM}-ca-key.pem"
+   		CA_CONFIG="ca-config.json"
+ 		PROFILE="kubernetes"
+		CSR_JSON="${COM}-client-csr.json"
+		PEM_NAME="${COM}-client"
+	else
+                cd {{local_cert_dir}}/k8s
+		[ -f "ca.pem" ] && F_CODE=0 || F_CODE=1
+		CA_CSR="ca-csr.json"
+		CA_PEM_NAME="ca"
+		CA="ca.pem"
+		CA_KEY="ca-key.pem"
+		CA_CONFIG="ca-config.json"
+ 		PROFILE="kubernetes"
+		CSR_JSON="${COM}-csr.json"
+		PEM_NAME="${COM}"
+	fi
+
+	# 判断各类CA证书是否存在，不存在则创建
+	if [ ${F_CODE} -ne 0 ];then
+		cfssl gencert -initca ${CA_CSR} | cfssljson -bare ${CA_PEM_NAME} &> /dev/null
+		[ $? ] && echo -e "\n\n#######################\nCreate ${CA_PEM_NAME} Done!\n#######################\n\n"
+	fi
+	
+	# 生成个组件证书
+	echo ${PEM_NAME}
+	cfssl gencert \
+		-ca=${CA} \
+		-ca-key=${CA_KEY} \
+		-config=${CA_CONFIG} \
+		-profile=${PROFILE} ${CSR_JSON} | cfssljson -bare ${PEM_NAME} &> /dev/null
+	[ $? ] && echo -e "\n\n###########################\n#### Create $COM Done! ####\n###########################\n\n"
+done
+
+####################################
+#           创建SA密钥             #
+####################################
+
+echo "############################################################"
+echo "####    Create SA Files with k8s master Components      ####"
+echo "############################################################"
+echo
+echo
+
+cd {{local_cert_dir}}/k8s
+openssl genrsa -out sa.key 2048
+openssl rsa -in sa.key -pubout -out sa.pub
+
+rm -rf {{local_cert_dir}}/{etcd,k8s}/*.csr
+
+
+# 拷贝到使用证书的roles下
+etcd_cert_dir=$root_dir/roles/etcd/files/etcd_cert
+master_cert_dir=$root_dir/roles/master/files/k8s_cert
+node_cert_dir=$root_dir/roles/node/files/k8s_cert
+
+mkdir -p $master_cert_dir $node_cert_dir $etcd_cert_dir
+
+cp -rf {{local_cert_dir}}/etcd/*.pem $etcd_cert_dir
+cp -rf {{local_cert_dir}}/k8s/{{ca,admin,kube-apiserver,kube-controller-manager,kube-scheduler,front-proxy}*.pem,sa.*} $master_cert_dir
+cp -rf {{local_cert_dir}}/k8s/{ca.pem,kube-proxy*.pem} $node_cert_dir

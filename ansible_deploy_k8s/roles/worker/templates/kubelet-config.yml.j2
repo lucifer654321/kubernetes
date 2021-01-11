@@ -1,0 +1,62 @@
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+address: "{{inventory_hostname}}"
+staticPodPath: ""
+syncFrequency: 1m
+fileCheckFrequency: 20s
+httpCheckFrequency: 20s
+staticPodURL: ""
+port: 10250
+readOnlyPort: 0
+rotateCertificates: true
+serverTLSBootstrap: true
+authentication:
+  anonymous:
+    enabled: false
+  webhook:
+    enabled: true
+  x509:
+    clientCAFile: "{{remote_k8s_cert_dir}}/ca.pem"
+authorization:
+  mode: Webhook
+kubeletCgroups: ""
+systemCgroups: ""
+cgroupRoot: ""
+cgroupsPerQOS: true
+cgroupDriver: systemd
+clusterDomain: "{{cluster_domain}}"
+clusterDNS:
+  - "{{cluster_dns}}"
+containerLogMaxSize: 20Mi
+containerLogMaxFiles: 10
+enableDebuggingHandlers: true
+enableContentionProfiling: true
+enforceNodeAllocatable: ["pods"]
+eventRecordQPS: 0
+eventBurst: 20
+evictionHard:
+  imagefs.available: 15%
+  memory.available: 100Mi
+  nodefs.available: 10%
+  nodefs.inodesFree: 5%
+hairpinMode: promiscuous-bridge
+healthzBindAddress: "127.0.0.1"
+healthzPort: 10248
+imageMinimumGCAge: 2m
+imageGCHighThresholdPercent: 85
+imageGCLowThresholdPercent: 80
+maxOpenFiles: 1000000
+kubeAPIQPS: 1000
+kubeAPIBurst: 2000
+maxPods: 220
+nodeStatusUpdateFrequency: 10s
+nodeStatusReportFrequency: 1m
+podPidsLimit: -1
+registryPullQPS: 0
+registryBurst: 20
+resolvConf: /etc/resolv.conf
+volumeStatsAggPeriod: 1m
+runtimeRequestTimeout: 10m
+serializeImagePulls: false
+podCIDR: "{{pod_cidr}}"
+enableControllerAttachDetach: true

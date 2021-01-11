@@ -1,0 +1,6 @@
+ETCDCTL_API=3 {{remote_bin_dir}}/etcdctl \
+--cacert={{remote_etcd_cert_dir}}/etcd-ca.pem \
+--cert={{remote_etcd_cert_dir}}/etcd.pem \
+--key={{remote_etcd_cert_dir}}/etcd-key.pem \
+--endpoints={% for host in groups['etcd'] %}https://{{ hostvars[host].inventory_hostname }}:2379{% if not loop.last %},{% endif %}{% endfor %} \
+endpoint health

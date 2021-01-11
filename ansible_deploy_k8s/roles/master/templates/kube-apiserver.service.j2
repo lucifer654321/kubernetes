@@ -1,0 +1,11 @@
+[Unit]
+Description=Kubernetes API Server
+Documentation=https://github.com/kubernetes/kubernetes
+
+[Service]
+EnvironmentFile={{remote_k8s_conf_dir}}/kube-apiserver.conf
+ExecStart={{remote_bin_dir}}/kube-apiserver $KUBE_APISERVER_OPTS
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

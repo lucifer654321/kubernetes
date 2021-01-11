@@ -1,0 +1,26 @@
+---
+# tasks file for docker
+- name: 创建目录
+  file: dest={{ item }} state=directory
+  with_items:
+    - "{{remote_docker_conf_dir}}"
+    - "{{remote_docker_work_dir}}"
+
+- name: 分发docker二进制文件
+  copy: src={{item}} dest={{remote_bin_dir}}
+  with_fileglob:
+    - "{{local_bin_dir}}/docker/*"
+
+- name: 分发service文件
+  template: src=docker.service.j2 dest={{remote_systemd_dir}}/docker.service
+
+- name: 配置docker
+  template: src=daemon.json.j2 dest={{remote_docker_conf_dir}}/daemon.json
+
+- name: 启动docker
+  systemd: name=docker state=restarted enabled=yes daemon_reload=yes
+
+- name: 查看状态
+  shell: docker info
+  register: docker
+- debug: var=docker.stdout_lines

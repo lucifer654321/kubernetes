@@ -1,0 +1,50 @@
+---
+# tasks file for master
+- name: 创建工作目录
+  file: dest={{ item }} state=directory
+  with_items:
+    - "{{remote_k8s_cert_dir}}"
+    - "{{remote_k8s_work_dir}}/kube-apiserver"
+    - "{{remote_k8s_work_dir}}/kube-controller-manager"
+    - "{{remote_k8s_work_dir}}/kube-scheduler"
+    - "{{remote_k8s_logs_dir}}/kube-apiserver"
+    - "{{remote_k8s_logs_dir}}/kube-controller_manager"
+    - "{{remote_k8s_logs_dir}}/kube-scheduler"
+
+- name: 分发k8s master二进制文件
+  copy: src={{items}} dest={{bin_dir}}
+  with_fileglob:
+    - "{{local_bin_dir_master}}/*"
+
+- name: 分发k8s证书
+  copy: src={{ item }} dest={{remote_k8s_cert_dir}}
+  with_fileglob:
+    - "k8s_cert/*"
+
+- name: 分发kubeconfig文件
+  copy: src={{local_kubeconfig_dir}}/{{ item }} dest={{remote_k8s_conf_dir}}
+  with_items:
+    - admin.kubeconfig
+    - kube-controller-manager.kubeconfig
+    - kube-scheduler.kubeconfig
+
+
+- name: 分发k8s配置文件
+  template: src={{ item }} dest={{remote_k8s_conf_dir}}/{{ item.split('.')[:-1]|join('.') }}
+  with_items:
+    - kube-apiserver.conf.j2
+    - kube-controller-manager.conf.j2
+    - kube-scheduler.conf.j2
+    - kube-scheduler.yaml.j2
+
+- name: 分发service文件
+  template: src={{ item }} dest={{remote_systemd_dir}}/{{ item.split('.')[:-1]|join('.') }}
+  with_items:
+    - kube-apiserver.service.j2
+    - kube-controller-manager.service.j2
+    - kube-scheduler.service.j2
+
+- name: 创建.kube/config
+- block:
+    file: dest=/root/.kube state=directory
+    copy: remote_src={{remote_k8s_conf_dir}}/admin.kubeconfig dest=/root/.kube/config

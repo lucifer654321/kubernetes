@@ -1,0 +1,17 @@
+{
+  "registry-mirrors": [
+        "https://dbzucv6w.mirror.aliyuncs.com",
+        "https://registry.docker-cn.com",
+        "http://hub-mirror.c.163.com",
+        "https://docker.mirrors.ustc.edu.cn"
+    ],
+  "exec-opts": ["native.cgroupdriver=systemd"],
+  "data-root": "{{remote_docker_work_dir}}/data",
+  "exec-root": "{{remote_docker_work_dir}}/exec",
+  "insecure-registries": ["192.168.49.34"],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "100m"
+  },
+  "storage-driver": "overlay2"
+}
