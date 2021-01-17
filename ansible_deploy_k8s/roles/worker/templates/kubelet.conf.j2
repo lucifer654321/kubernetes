@@ -2,7 +2,7 @@ KUBELET_OPTS="--logtostderr=false \
 --v=4 \
 --log-dir={{remote_k8s_logs_dir}} \
 --hostname-override={{ node_name }} \
---bootstrap-kubeconfig={{remote_k8s_conf_dir}}/bootstrap.kubeconfig \
+--bootstrap-kubeconfig={{remote_k8s_conf_dir}}/kubelet-bootstrap.kubeconfig \
 --kubeconfig={{remote_k8s_conf_dir}}/kubelet.kubeconfig \
 --pod-infra-container-image=registry.cn-hangzhou.aliyuncs.com/google_containers/pause-amd64:3.2 \
 --config={{remote_k8s_conf_dir}}/kubelet-config.yml \

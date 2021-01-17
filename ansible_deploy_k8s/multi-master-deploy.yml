@@ -3,6 +3,7 @@
   gather_facts: false
   hosts: all 
   roles:
+    - kernel
     - common
     - sshkeygen
   tags: common 
@@ -22,19 +23,19 @@
     - kubeconfig
   tags: kubeconfig
 
-- name: 3.部署Docker
-  gather_facts: false
-  hosts: k8s 
-  roles:
-    - docker 
-  tags: docker
-
 - name: 3.部署ETCD集群
   gather_facts: false
   hosts: etcd
   roles:
     -  etcd
   tags: etcd
+
+- name: 4.部署Docker
+  gather_facts: false
+  hosts: k8s 
+  roles:
+    - docker 
+  tags: docker
 
 - name: 4.部署高可用
   gather_facts: false
@@ -48,7 +49,6 @@
   hosts: master
   roles:
     - master
-    - startup
   tags: master
 
 - name: 6.授权

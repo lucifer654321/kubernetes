@@ -7,18 +7,28 @@
     - "{{remote_docker_work_dir}}"
 
 - name: 分发docker二进制文件
-  copy: src={{item}} dest={{remote_bin_dir}}
+  copy: src={{item}} dest={{remote_bin_dir}} mode=0755
   with_fileglob:
     - "{{local_bin_dir}}/docker/*"
+  register: docker_bin_file
+
+- name: 记录日志
+  local_action: lineinfile dest={{local_log_dir}}/bin_docker.log line={{item.split('/')[-1]}} create=yes
+  with_fileglob:
+    - "{{local_bin_dir}}/docker/*"
+  when: docker_bin_file.changed == true
 
 - name: 分发service文件
   template: src=docker.service.j2 dest={{remote_systemd_dir}}/docker.service
+  register: docker_systemd
 
 - name: 配置docker
   template: src=daemon.json.j2 dest={{remote_docker_conf_dir}}/daemon.json
+  register: docker_conf
 
 - name: 启动docker
   systemd: name=docker state=restarted enabled=yes daemon_reload=yes
+  changed_when: docker_systemd.changed == 'true' or docker_conf == 'true'
 
 - name: 查看状态
   shell: docker info

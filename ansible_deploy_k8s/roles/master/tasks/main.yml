@@ -3,23 +3,37 @@
 - name: 创建工作目录
   file: dest={{ item }} state=directory
   with_items:
+    - "/root/.kube"
     - "{{remote_k8s_cert_dir}}"
     - "{{remote_k8s_work_dir}}/kube-apiserver"
     - "{{remote_k8s_work_dir}}/kube-controller-manager"
     - "{{remote_k8s_work_dir}}/kube-scheduler"
-    - "{{remote_k8s_logs_dir}}/kube-apiserver"
-    - "{{remote_k8s_logs_dir}}/kube-controller_manager"
-    - "{{remote_k8s_logs_dir}}/kube-scheduler"
+
+- name: 创建kubectl命令自动补全
+  lineinfile:
+    path: "/root/.bashrc"
+    line: "{{item}}"
+  loop:
+    - "export KUBECONFIG=$HOME/.kube/config"
+    - "source <(kubectl completion bash)"
 
 - name: 分发k8s master二进制文件
-  copy: src={{items}} dest={{bin_dir}}
+  copy: src={{item}} dest={{remote_bin_dir}} mode=0755
   with_fileglob:
     - "{{local_bin_dir_master}}/*"
+  register: master_bin_file
+
+- name: 记录日志
+  local_action: lineinfile dest={{local_log_dir}}/bin_master.log line={{item.split('/')[-1]}} create=yes
+  with_fileglob:
+    - "{{local_bin_dir_master}}/*"
+  when: master_bin_file.changed == true
 
 - name: 分发k8s证书
   copy: src={{ item }} dest={{remote_k8s_cert_dir}}
   with_fileglob:
     - "k8s_cert/*"
+  register: master_cert
 
 - name: 分发kubeconfig文件
   copy: src={{local_kubeconfig_dir}}/{{ item }} dest={{remote_k8s_conf_dir}}
@@ -27,6 +41,7 @@
     - admin.kubeconfig
     - kube-controller-manager.kubeconfig
     - kube-scheduler.kubeconfig
+  register: master_kubeconfig
 
 
 - name: 分发k8s配置文件
@@ -36,6 +51,9 @@
     - kube-controller-manager.conf.j2
     - kube-scheduler.conf.j2
     - kube-scheduler.yaml.j2
+    - audit-policy.yaml.j2
+    - encryption-config.yaml.j2
+  register: master_conf
 
 - name: 分发service文件
   template: src={{ item }} dest={{remote_systemd_dir}}/{{ item.split('.')[:-1]|join('.') }}
@@ -43,8 +61,49 @@
     - kube-apiserver.service.j2
     - kube-controller-manager.service.j2
     - kube-scheduler.service.j2
+  register: master_service
 
-- name: 创建.kube/config
-- block:
-    file: dest=/root/.kube state=directory
-    copy: remote_src={{remote_k8s_conf_dir}}/admin.kubeconfig dest=/root/.kube/config
+- name: 远程创建.kube/config文件
+  copy: src={{remote_k8s_conf_dir}}/admin.kubeconfig dest=/root/.kube/config remote_src=true
+
+- name: 启动kube-apiserver
+  systemd: name=kube-apiserver state=restarted enabled=yes daemon-reload=yes
+  when: master_bin_file.changed == true or master_cert.changed == true or master_kubeconfig.changed == true or
+        master_conf.changed == true or master_service.changed == true
+
+- name: confirm apiserver service state
+  shell: "systemctl status kube-apiserver.service|grep Active"
+  register: ret_apiserver_status
+  until: '"running" in ret_apiserver_status.stdout'
+  retries: "{{ var_retry_max }}"
+  delay: "{{ var_delay_cnt }}"
+
+- name: 启动keepalived
+  systemd: name=keepalived state=restarted enabled=yes daemon-reload=yes
+
+- name: 等待HA启动
+  wait_for: host={{vip}} port={{vip_port}} delay=5
+
+- name: 启动kube-controller-manager
+  systemd: name=kube-controller-manager state=restarted enabled=yes daemon-reload=yes
+  when: master_bin_file.changed == true or master_cert.changed == true or master_kubeconfig.changed == true or
+        master_conf.changed == true or master_service.changed == true
+
+- name: confirm controller manager service state
+  shell: "systemctl status kube-controller-manager.service|grep Active"
+  register: ret_k8scm_status
+  until: '"running" in ret_k8scm_status.stdout'
+  retries: "{{ var_retry_max }}"
+  delay: "{{ var_delay_cnt }}"
+
+- name: 启动kube-scheduler
+  systemd: name=kube-scheduler state=restarted enabled=yes daemon-reload=yes
+  when: master_bin_file.changed == true or master_cert.changed == true or master_kubeconfig.changed == true or
+        master_conf.changed == true or master_service.changed == true
+
+- name: confirm scheduler service state
+  shell: "systemctl status kube-scheduler.service|grep Active"
+  register: ret_k8sch_status
+  until: '"running" in ret_k8sch_status.stdout'
+  retries: "{{ var_retry_max }}"
+  delay: "{{ var_delay_cnt }}"

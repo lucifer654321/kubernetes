@@ -1,4 +1,4 @@
-KUBE_SCHEDULER_OPTS="--logtostderr=false \
+KUBE_SCHEDULER_OPTS='--logtostderr=false \
 --v=2 \
 --log-dir={{remote_k8s_logs_dir}} \
 --port=0 \
@@ -14,4 +14,4 @@ KUBE_SCHEDULER_OPTS="--logtostderr=false \
 --requestheader-extra-headers-prefix="X-Remote-Extra-" \
 --requestheader-group-headers=X-Remote-Group \
 --requestheader-username-headers=X-Remote-User \
---authorization-kubeconfig={{remote_k8s_conf_dir}}/kube-scheduler.kubeconfig"
+--authorization-kubeconfig={{remote_k8s_conf_dir}}/kube-scheduler.kubeconfig'

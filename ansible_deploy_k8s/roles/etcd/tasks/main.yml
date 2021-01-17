@@ -7,25 +7,36 @@
     - "{{remote_etcd_cert_dir}}"
 
 - name: 移动etcd二进制文件
-  copy: src={{item}} dest={{bin_dir}}
+  copy: src={{item}} dest={{remote_bin_dir}} mode=0755
   with_fileglob:
     - "{{local_bin_dir}}/etcd/*"
+  register: etcd_bin_file
+
+- name: 记录日志
+  local_action: lineinfile dest={{local_log_dir}}/bin_etcd.log line={{item.split('/')[-1]}} create=yes
+  with_fileglob:
+    - "{{local_bin_dir}}/etcd/*"
+  when: etcd_bin_file.changed == true
 
 - name: 分发证书
   copy: src=etcd_cert/{{ item }} dest={{remote_etcd_cert_dir}}
   with_items:
     - etcd-ca.pem
+    - etcd-ca-key.pem
     - etcd.pem
     - etcd-key.pem
 
 - name: 分发etcd配置文件
   template: src=etcd.conf.j2 dest={{remote_etcd_conf_dir}}/etcd.conf
+  register: etcd_conf
 
 - name: 分发service文件
   template: src=etcd.service.j2 dest={{remote_systemd_dir}}/etcd.service
+  register: etcd_systemd
 
 - name: 启动etcd
   systemd: name=etcd state=restarted enabled=yes daemon_reload=yes
+  changed_when: etcd_conf.changed == true or etcd_systemd.changed == true
 
 - name: 分发etcd验证脚本
   template: src=etcd.sh.j2 dest={{remote_etcd_work_dir}}/etcd.sh mode=u+x
@@ -33,4 +44,4 @@
 - name: 获取etcd集群状态
   shell: /bin/bash {{remote_etcd_work_dir}}/etcd.sh
   register: status
-- debug: var=status.stdout_lines
+- debug: var=status.stderr_lines

@@ -6,7 +6,7 @@ Wants=network-online.target
 
 [Service]
 Type=notify
-EnvironmentFile={{ etcd_conf_dir }}/etcd.conf
+EnvironmentFile={{ remote_etcd_conf_dir }}/etcd.conf
 ExecStart={{remote_bin_dir}}/etcd \
 	--data-dir={{remote_etcd_work_dir}}/data \
   	--wal-dir={{remote_etcd_work_dir}}/wal \

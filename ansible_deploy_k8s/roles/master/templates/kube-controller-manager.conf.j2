@@ -1,10 +1,9 @@
-KUBE_CONTROLLER_MANAGER_OPTS="--logtostderr=false \
+KUBE_CONTROLLER_MANAGER_OPTS='--logtostderr=false \
 --v=2 \
 --log-dir={{remote_k8s_logs_dir}} \
 --secure-port=10257 \
 --bind-address=127.0.0.1 \
 --profiling \
---cluster-name=kubernetes \
 --cluster-name=kubernetes \
 --controllers=*,bootstrapsigner,tokencleaner \
 --kube-api-qps=1000 \
@@ -24,7 +23,7 @@ KUBE_CONTROLLER_MANAGER_OPTS="--logtostderr=false \
 --requestheader-username-headers=X-Remote-User \
 --cluster-signing-cert-file={{remote_k8s_cert_dir}}/ca.pem \
 --cluster-signing-key-file={{remote_k8s_cert_dir}}/ca-key.pem  \
---experimental-cluster-signing-duration=87600h0m0s \
+--cluster-signing-duration=87600h0m0s \
 --horizontal-pod-autoscaler-sync-period=10s \
 --concurrent-deployment-syncs=10 \
 --concurrent-gc-syncs=30 \
@@ -35,4 +34,4 @@ KUBE_CONTROLLER_MANAGER_OPTS="--logtostderr=false \
 --terminated-pod-gc-threshold=10000 \
 --root-ca-file={{remote_k8s_cert_dir}}/ca.pem \
 --service-account-private-key-file={{remote_k8s_cert_dir}}/sa.key \
---kubeconfig={{remote_k8s_conf_dir}}/kube-controller-manager.kubeconfig"
+--kubeconfig={{remote_k8s_conf_dir}}/kube-controller-manager.kubeconfig'

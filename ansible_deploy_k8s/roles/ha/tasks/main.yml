@@ -9,18 +9,24 @@
 
 - name: 设置haproxy配置文件
   template: src=haproxy.cfg.j2 dest={{remote_haproxy_conf_dir}}/haproxy.cfg
+  register: haproxy_systemd
 
 - name: 启动haproxy
   systemd:
     name: haproxy
     state: started
     enabled: yes
+  changed_when: haproxy_systemd.changed == 'true'  
 
 - name: 设置keepalived配置文件
-  template: src={{item}} dest={{remote_keepalived_conf_dir}}/{{item.split('.')[:-1].join('.')}}
+  template: src={{item}} dest={{remote_keepalived_conf_dir}}/{{item.split('.')[:-1]|join('.')}}
+  with_items:
+    - keepalived.conf.j2
+
+- name: 设置健康性检查脚本
+  template: src={{item}} dest={{remote_keepalived_conf_dir}}/{{item.split('.')[:-1]|join('.')}} mode=0755
   with_items:
     - check_apiserver.sh.j2
-    - keepalived.conf.j2
 
 - name: 启动keepalived
   systemd:

@@ -4,9 +4,9 @@ echo "#### Config Bootstrap ####"
 [ -d "/root/.kube" ] || mkdir -p /root/.kube
 ADMIN_CONFIG="/root/.kube/config"
 
-[ -f ${ADMIN_CONFIG} ] || cp {{remote_k8s_conf_dir}}/admin.kubeconfig ${ADMIN_CONFIG}
+[ -f ${ADMIN_CONFIG} ] || cp /etc/kubernetes/admin.kubeconfig ${ADMIN_CONFIG}
 
-ALL_NAMES=({% for ip in groups.k8s %} {{ hostvars[ip].node_name }} {% endfor %})
+ALL_NAMES=( master01  master02  master03  k8snode01  k8snode02 )
 
 for all_name in ${ALL_NAMES[@]}
 do
@@ -20,9 +20,9 @@ do
 
     # 设置集群参数
     kubectl config set-cluster kubernetes \
-      --certificate-authority={{remote_k8s_cert_dir}}/ca.pem \
+      --certificate-authority=/etc/kubernetes/pki/ca.pem \
       --embed-certs=true \
-      --server={{apiserver}} \
+      --server=https://192.168.49.200:16443 \
       --kubeconfig=bootstrap/kubelet-bootstrap-${all_name}.kubeconfig
 
     # 设置客户端认证参数
@@ -45,6 +45,6 @@ done
 for i in  ${ALL_NAMES[@]}
 do
     echo ">>> $i"
-    ssh $i "mkdir -p {{remote_k8s_conf_dir}}"
-    scp bootstrap/kubelet-bootstrap-${i}.kubeconfig $i:{{remote_k8s_conf_dir}}/kubelet-bootstrap.kubeconfig
+    ssh $i "mkdir -p /etc/kubernetes"
+    scp bootstrap/kubelet-bootstrap-${i}.kubeconfig $i:/etc/kubernetes/kubelet-bootstrap.kubeconfig
 done

@@ -1,0 +1,82 @@
+---
+- name: Clean k8s deploy environment in remote
+  hosts: all
+  gather_facts: false
+  tasks:
+  - name: stop service for etcd
+    ignore_errors: yes
+    systemd: name=etcd state=stopped enabled=no
+    when: inventory_hostname in groups.etcd
+
+  - name: stop service for ha
+    ignore_errors: yes
+    systemd: name={{item}} state=stopped enabled=no
+    with_items:
+      - "keepalived"
+      - "haproxy"
+    when: inventory_hostname in groups.lb
+
+  - name: stop service for master
+    ignore_errors: yes
+    systemd: name={{item}} state=stopped enabled=no
+    with_items:
+      - "kube-scheduler"
+      - "kube-controller-manager"
+      - "kube-apiserver"
+    when: inventory_hostname in groups.master
+
+  - name: stop service for worker
+    systemd: name={{item}} state=stopped enabled=no
+    ignore_errors: yes
+    with_items:
+      - "docker"
+      - "kubelet"
+      - "kube-proxy"
+    when: inventory_hostname in groups.k8s
+
+  - name: remove HA
+    ignore_errors: yes
+    yum: name=keepalived,haproxy state=absent
+
+  - name: clean remote environment
+    file: dest={{item}} state=absent
+    with_items:
+      - "{{remote_k8s_work_dir}}"
+      - "{{remote_k8s_conf_dir}}"
+      - "{{remote_docker_conf_dir}}"
+      - "{{remote_etcd_conf_dir}}"
+      - "{{remote_keepalived_conf_dir}}"
+      - "{{remote_haproxy_conf_dir}}"
+      - "{{remote_cni_conf_dir}}"
+      - "{{remote_cni_bin_dir}}"
+      - "{{remote_systemd_dir}}/docker.service"
+      - "{{remote_systemd_dir}}/etcd.service"
+      - "{{remote_systemd_dir}}/kube-apiserver.service"
+      - "{{remote_systemd_dir}}/kube-controller-manager.service"
+      - "{{remote_systemd_dir}}/kube-scheduler.service"
+      - "{{remote_systemd_dir}}/kubelet.service"
+      - "{{remote_systemd_dir}}/kube-proxy.service"
+      - "$HOME/.kube"
+
+  - name: besure files should be cleanned
+    shell: ls {{item}}
+    with_items:
+      - "{{remote_bin_dir}}"
+    register: files
+
+  - name: clean remote bin files
+    file: dest={{remote_bin_dir}}/{{item}} state=absent
+    with_items:
+      - "{{files.results[0].stdout_lines}}"
+
+- name: Clean k8s deploy environment in local
+  hosts: localhost
+  gather_facts: false
+  tasks:
+  - name: clean local environment
+    file: dest={{item}} state=absent
+    with_items:
+      - "{{local_file_dir}}"
+      - "roles/etcd/files/etcd_cert"
+      - "roles/master/files/k8s_cert"
+      - "roles/worker/files/k8s_cert"

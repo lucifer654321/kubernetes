@@ -6,24 +6,39 @@
     - "{{remote_k8s_work_dir}}/kubeconfig"
     - "{{remote_k8s_work_dir}}/pki"
 
-
 - name: 创建本地kubeconfig目录
   local_action: file dest={{local_kubeconfig_dir}} state=directory
 
 - name: 分发kubelet
-  copy: src={{item}} dest={{remote_bin_dir}}
+  copy: src={{item}} dest={{remote_bin_dir}} mode=0755
   with_items:
-    - "{{local_bin_dir_master}}/kubelet"
+    - "{{local_bin_dir_master}}/kubectl"
 
 - name: 分发证书
   copy: src={{item}} dest={{remote_k8s_work_dir}}/pki/
   with_fileglob:
-    - "{{local_cert_dir}}/k8s/*"
+    - "{{local_cert_dir}}/k8s/*.pem"
+    - "{{local_cert_dir}}/k8s/ca-config.json"
 
-- name: 创建kubeconfig配置文件
 - block:
+  - name: 分发kubeconfig脚本
     template: src=generate_kubeconfig.sh.j2 dest={{remote_k8s_work_dir}}/kubeconfig/generate_kubeconfig.sh
+  - name: 确认kubeconfig文件是否存在
+    local_action: stat path={{item}}
+    with_items:
+      - "{{local_kubeconfig_dir}}/admin.kubeconfig"
+      - "{{local_kubeconfig_dir}}/kube-controller-manager.kubeconfig"
+      - "{{local_kubeconfig_dir}}/kube-scheduler.kubeconfig"
+      - "{{local_kubeconfig_dir}}/kube-proxy.kubeconfig"
+    register: file_state
+  - name: 执行脚本
     shell: cd {{remote_k8s_work_dir}}/kubeconfig && /usr/bin/bash generate_kubeconfig.sh
+    when: |
+          file_state.results[0].stat.exists == false or
+          file_state.results[1].stat.exists == false or
+          file_state.results[2].stat.exists == false or
+          file_state.results[3].stat.exists == false
+  - name: 同步kubeconfig文件到本地
     synchronize: src={{remote_k8s_work_dir}}/kubeconfig/{{ item }} dest={{local_kubeconfig_dir}} mode=pull
     with_items:
       - 'admin.kubeconfig'

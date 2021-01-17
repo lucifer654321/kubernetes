@@ -1,45 +1,59 @@
 ---
 # tasks file for common
 # ALL Nodes
+- name: Wait for server to restart
+  wait_for:
+    port=22
+    delay=1
+    timeout=300
 
 - name: 禁用Firewalld和dnsmasq
   systemd:
-  - name:
+    name: "{{item}}"
+    state: stopped
+    enabled: no
+  ignore_errors: yes
+  with_items:
     - firewalld
     - dnsmasq
-    state: stop
-    enabled: no
 
 - name: 禁用Selinux
   lineinfile:
     dest: /etc/selinux/config
     regexp: '^SELINUX='
     line: SELINUX=disabled
+  register: selinux_state
 
 - name: 设置主机名
-  shell: hostnamectl set-hostname {{ node_name|quote }}
+  hostname: name={{ node_name|quote }}
 
 - name: 关闭swap
   lineinfile:
     dest: /etc/fstab
     regexp: '^(.*swap.*)$'
     line: '# \1'
+  register: swap_state
 
 - name: 即时生效
   shell: setenforce 0; swapoff -a
+  when: selinux_state.changed == true or swap_state.changed == true
 
 - name: 添加hosts
   template: src=hosts.j2 dest=/etc/hosts
 
-- name: 同步时间
 - block:
-    yum: name: chrony state: present
-    copy: src=files/chrony.conf dest=/etc/chrony.conf
+  - name: 安装时间服务
+    yum: name=chrony state=present
+  - name: 设置时间源服务器
+    copy: src=chrony.conf dest=/etc/chrony.conf
+    register: time_conf
+  - name: 启动时间服务
     systemd: name=chronyd state=restarted enabled=yes
+    when: time_conf.changed == true
 
 - name: 安装基本工具
   yum:
-  - name:
+    name:
     - wget
     - git
     - jq
@@ -49,27 +63,31 @@
     - yum-utils
     - device-mapper-persistent-data
     - lvm2
+    - rsync
     state: present
 
-- name: 设置YUM源
 - block:
+  - name: 设置ALIYUN YUM源
     get_url: url=https://mirrors.aliyun.com/repo/Centos-8.repo dest=/etc/yum.repos.d/CentOS-Base.repo
     # yum: name=https://mirrors.aliyun.com/epel/epel-release-latest-8.noarch.rpm state=present
     # shell: sed -i 's|^#baseurl=https://download.fedoraproject.org/pub|baseurl=https://mirrors.aliyun.com|' /etc/yum.repos.d/epel*
     # shell: sed -i 's|^metalink|#metalink|' /etc/yum.repos.d/epel*
-    shell: yum clean all && yum makecache
+  - name: 重置缓存
+    yum: update_cache=yes
 
-- name: Install IPVS
 - block:
+  - name: 安装ipvs
     yum:
-    - name:
+      name:
       - ipvsadm
       - ipset
       - sysstat
       - conntrack
       - libseccomp
       state: present
-    copy: src=files/ipvs.conf dest=/etc/modules-load.d/ipvs.conf
+  - name: 设置模块配置文件
+    copy: src=ipvs.conf dest=/etc/modules-load.d/ipvs.conf
+  - name: 加载模块
     systemd: name=systemd-modules-load state=started enabled=yes
 
 - name: 配置内核参数
@@ -80,11 +98,13 @@
 
 - name: Update system
   yum:
-  - name: '*'
+    name: '*'
     state: latest
+  register: update_res
 
 - name: Restart server
   shell: reboot
+  when: update_res.changed == true
 
 - name: Wait for server to restart
   wait_for:

@@ -1,0 +1,14 @@
+---
+- name: Create ssh key for ansible
+  gather_facts: false
+  hosts: all
+  remote_user: root
+  become: yes
+  tasks:
+  - name: Set authorized key defining key options
+    authorized_key:
+      user: root
+      key: "{{ lookup('file', '/root/.ssh/id_rsa.pub') }}"
+      path: '/root/.ssh/authorized_keys'
+      manage_dir: no
+      state: present

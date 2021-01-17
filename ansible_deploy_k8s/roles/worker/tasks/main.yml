@@ -1,24 +1,32 @@
 ---
 # tasks file for worker
 - name: 创建工作目录
-  file: dest={{ item }} state=directory
+  file: dest={{ item }} state=directory recurse=yes
   with_items:
     - "{{remote_cni_conf_dir}}"
     - "{{remote_cni_bin_dir}}"
     - "{{remote_k8s_cert_dir}}"
     - "{{remote_k8s_work_dir}}"
     - "{{remote_k8s_logs_dir}}"
+    - "{{remote_k8s_images_dir}}"
 
-- name: 分发并解压cni插件二进制包
-  unarchive: src={{ item }} dest={{remote_cni_bin_dir}}
-  with_fileglob:
-    - "{{ software_dir }}/cni-plugins-*.tgz"
+# - name: 分发并解压cni插件二进制包
+#   unarchive: src={{ item }} dest={{remote_cni_bin_dir}}
+#   with_fileglob:
+#     - "{{ software_dir }}/cni-plugins-*.tgz"
 
 - name: 移动k8s node二进制文件
-  copy: src={{local_bin_dir_worker}}/{{item}} dest={{remote_bin_dir}}
-  with_fileglob:
+  copy: src={{local_bin_dir_worker}}/{{item}} dest={{remote_bin_dir}} mode=0755
+  with_items:
     - kubelet
     - kube-proxy
+  register: worker_bin_file
+
+- name: 记录日志
+  local_action: lineinfile dest={{local_log_dir}}/bin_worker.log line={{item.split('/')[-1]}} create=yes
+  with_fileglob:
+    - "{{local_bin_dir_worker}}/*"
+  when: worker_bin_file.changed == true
 
 - name: 分发k8s证书
   copy: src=k8s_cert/{{ item }} dest={{remote_k8s_cert_dir}}
@@ -26,16 +34,13 @@
     - ca.pem
     - kube-proxy.pem
     - kube-proxy-key.pem
+  register: worker_cert
 
 - name: 分发kubeconfig
   copy: src={{local_kubeconfig_dir}}/{{ item }} dest={{remote_k8s_conf_dir}}
   with_items:
     - kube-proxy.kubeconfig
-
-- name: 分发bootstrap文件
-  copy: src={{local_bootstrap_dir}}/{{item}} dest={{remote_k8s_conf_dir}}/kubelet-bootstrap.kubeconfig
-  with_item:
-    -- kubelet-bootstrap-{{node_name}}.kubeconfig
+  register: worker_kubeconfig
 
 - name: 分发k8s配置文件
   template: src={{ item }} dest={{remote_k8s_conf_dir}}/{{ item.split('.')[:-1]|join('.') }}
@@ -44,25 +49,65 @@
     - kubelet.conf.j2
     - kube-proxy-config.yml.j2
     - kube-proxy.conf.j2
+  register: worker_conf
 
 - name: 分发service文件
   template: src={{ item }} dest={{remote_systemd_dir}}/{{ item.split('.')[:-1]|join('.') }}
   with_items:
     - kubelet.service.j2
     - kube-proxy.service.j2
+  register: worker_service
 
 - name: 启动服务
   systemd: name={{item}} state=restarted enabled=yes daemon-reload=yes
   with_items:
     - kubelet
     - kube-proxy
+  when: worker_bin_file.changed == true or worker_cert.changed == true or worker_kubeconfig.changed == true or
+        worker_conf.changed == true or worker_service.changed == true
+
+- name: confirm kubelet service state
+  shell: "systemctl status kubelet.service|grep Active"
+  register: ret_kubelet_status
+  until: '"running" in ret_kubelet_status.stdout'
+  retries: "{{ var_retry_max }}"
+  delay: "{{ var_delay_cnt }}"
+
+- name: confirm kube-proxy service state
+  shell: "systemctl status kube-proxy.service|grep Active"
+  register: ret_proxy_status
+  until: '"running" in ret_proxy_status.stdout'
+  retries: "{{ var_retry_max }}"
+  delay: "{{ var_delay_cnt }}"
+
+- block:
+  - name: 查看集群状态
+    shell: sleep 3 && kubectl get cs
+    register: cs
+  - debug: var=cs.stdout_lines
+  
+  - name: 允许Node加入集群
+    ignore_errors: yes
+    shell: kubectl certificate approve $(kubectl get csr |awk '/Pending/{print $1}')
+  
+  - name: 查看集群节点信息
+    shell: sleep 3 && kubectl get nodes
+    register: nodes
+  - debug: var=nodes.stdout_lines
+  when: node_name == "master01"
 
 - name: 分发预准备镜像
-  unarchive: src={{ software_dir }}/image.tar.gz dest={{remote_k8s_images_dir}}
+  unarchive: src={{ software_dir }}/images.tar.gz dest={{remote_k8s_images_dir}}
 
 - name: 导入镜像
   docker_image:
-    load_path: {{item}}
+    name: "{{item.value.name}}"
+    tag: "{{item.value.tag}}"
+    load_path: "{{remote_k8s_images_dir}}/{{item.value.file}}"
     source: load
-  with_fileglob:
-    - "{{remote_k8s_images_dir}}/*"
+  with_dict:
+    - "{{images}}"
+  register: res
+  until: res
+  retries: "{{ var_retry_max }}"
+- debug: var=res

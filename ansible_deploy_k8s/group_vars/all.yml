@@ -1,6 +1,8 @@
 # 本地临时目录
+local_file_dir: /tmp/k8s
 local_ssh_dir: /tmp/k8s/ssh
 local_bin_dir: /tmp/k8s/bin
+local_log_dir: /tmp/k8s/logs
 local_bin_dir_master: /tmp/k8s/bin/k8s/master
 local_bin_dir_worker: /tmp/k8s/bin/k8s/worker
 local_cert_dir: /tmp/k8s/cert
@@ -14,6 +16,92 @@ var_download_tmp_relative_dir_etcd: "etcd-{{var_ver_etcd}}-linux-amd64"
 # 安装目录 
 software_dir: '/root/binary_pkg'
 
+# SETTINGS: BASIC
+var_retry_max: 15
+var_delay_cnt: 3
+var_sleep_internal: 15
+
+# SETTINGS: IMAGES
+## version and basic var info
+var_os_type: linux
+var_arch: amd64
+var_ver_cfssl: R1.2
+var_ver_k8s: v1.19.6
+var_ver_etcd: v3.4.13
+var_ver_docker: 19.03.14
+var_ver_cni: v0.8.5
+var_ver_calico: v3.17.1
+var_ver_pause: 3.2
+var_ver_coredns: 1.8.0
+var_ver_dashboard: v2.1.0
+var_ver_metrics_scraper: v1.0.6
+var_ver_metrics_server: 0.3.7
+var_ver_prometheus: v2.15.1
+
+## vars file for download
+var_download_base_dir: /tmp/binary
+
+## var for images
+var_image_pause_name: "registry.cn-hangzhou.aliyuncs.com/google_containers/pause-amd64"
+var_image_coredns_name: "coredns/coredns"
+var_image_dashboard_name: "kubernetesui/dashboard"
+var_image_pod2daemon_name: "calico/pod2daemon-flexvol"
+var_image_cni_name: "calico/cni"
+var_image_node_name: "calico/node"
+var_image_kube_controllers_name: "calico/kube-controllers"
+var_image_metrics_scraper_name: "kubernetesui/metrics-scraper"
+var_image_metrics_server_name: "dotbalo/metrics-server"
+var_image_prometheus_name: "prom/prometheus"
+var_download_save_dir_images: "{{ var_download_base_dir }}/images"
+var_download_save_pause: pause.tar
+var_download_save_coredns: coredns.tar
+var_download_save_dashboard: dashboard.tar
+var_download_save_prometheus: prometheus.tar
+
+images:
+  pause:
+    name: "registry.cn-hangzhou.aliyuncs.com/google_containers/pause-amd64"
+    tag: "3.2"
+    file: "pause.tar"
+  coredns:
+    name: "coredns/coredns"
+    tag: "1.8.0"
+    file: "coredns.tar"
+  dashboard:
+    name: "kubernetesui/dashboard"
+    tag: "v2.1.0"
+    file: "dashboard.tar"
+  calico_pod2daemon:
+    name: "calico/pod2daemon-flexvol"
+    tag: "v3.17.1"
+    file: "pod2daemon.tar"
+  calico_cni:
+    name: "calico/cni"
+    tag: "v3.17.1"
+    file: "cni.tar"
+  calico_node:
+    name: "calico/node"
+    tag: "v3.17.1"
+    file: "node.tar"
+  calico_controllers:
+    name: "calico/kube-controllers"
+    tag: "v3.17.1"
+    file: "kube-controllers.tar"
+  metrics_scraper:
+    name: "kubernetesui/metrics-scraper"
+    tag: "v1.0.6"
+    file: "metrics-scraper.tar"
+  metrics_server:
+    name: "dotbalo/metrics-server"
+    tag: "0.3.7"
+    file: "metrics-server.tar"
+
+
+
+
+
+
+
 # 系统目录
 remote_bin_dir: /usr/local/bin
 remote_systemd_dir: /usr/lib/systemd/system
@@ -26,7 +114,6 @@ remote_k8s_images_dir: "{{remote_k8s_work_dir}}/images"
 # k8s相关目录
 remote_k8s_conf_dir: /etc/kubernetes
 remote_k8s_cert_dir: "{{remote_k8s_conf_dir}}/pki"
-remote_k8s_work_dir: "{{remote_k8s_work_dir}}/k8s"
 
 # docker相关目录
 remote_docker_conf_dir: /etc/docker
@@ -58,12 +145,13 @@ pod_cidr: '10.244.0.0/16' # 与roles/addons/files/kube-flannel.yaml中网段一�
 service_nodeport_range: '30000-32767'
 cluster_domain: 'cluster.local'
 bootstrap_token: '41f7e4ba8b7be874fcff18bf5cf41a7c'
+ENCRYPTION_KEY: 'RantR13Izcl22WTBOyJpeNWF454NZo6d845urI+cPzs='
 
 # 高可用，如果部署单Master，该项忽略
 vip: '192.168.49.200'
 vip_port: '16443'
 api_port: '6443'
-apiserver: '{{vip}}:{{vip_port}}'
+apiserver: 'https://{{vip}}:{{vip_port}}'
 nic: 'ens32'
 
 # 自签证书可信任IP列表，为方便扩展，可添加多个预留IP

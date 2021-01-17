@@ -1,6 +1,6 @@
 #!/bin/bash
 
-root_dir=$(pwd|sed 's#roles/tls/template##')
+root_dir=$1
 K8S_COMPONENTES=(etcd admin kube-apiserver kube-controller-manager kube-scheduler kube-proxy front-proxy)
 
 echo "######################################################"
@@ -18,8 +18,8 @@ do
 		CA_PEM_NAME="${COM}-ca"
 		CA="${COM}-ca.pem"
 		CA_KEY="${COM}-ca-key.pem"
-		CA_CONFIG="etcd-ca-config.json"
- 		PROFILE="etcd"
+		CA_CONFIG="ca-config.json"
+ 		PROFILE="kubernetes"
 		CSR_JSON="${COM}-csr.json"
 		PEM_NAME="${COM}"
 	elif [ $COM  == "front-proxy" ];then
@@ -80,12 +80,13 @@ rm -rf {{local_cert_dir}}/{etcd,k8s}/*.csr
 
 
 # 拷贝到使用证书的roles下
-etcd_cert_dir=$root_dir/roles/etcd/files/etcd_cert
-master_cert_dir=$root_dir/roles/master/files/k8s_cert
-node_cert_dir=$root_dir/roles/node/files/k8s_cert
+etcd_cert_dir=${root_dir}/roles/etcd/files/etcd_cert
+master_cert_dir=${root_dir}/roles/master/files/k8s_cert
+node_cert_dir=${root_dir}/roles/worker/files/k8s_cert
 
 mkdir -p $master_cert_dir $node_cert_dir $etcd_cert_dir
 
 cp -rf {{local_cert_dir}}/etcd/*.pem $etcd_cert_dir
-cp -rf {{local_cert_dir}}/k8s/{{ca,admin,kube-apiserver,kube-controller-manager,kube-scheduler,front-proxy}*.pem,sa.*} $master_cert_dir
+cp -rf {{local_cert_dir}}/k8s/{ca,admin,kube-apiserver,kube-controller-manager,kube-scheduler,front-proxy}*.pem $master_cert_dir
+cp -rf {{local_cert_dir}}/k8s/sa.* $master_cert_dir
 cp -rf {{local_cert_dir}}/k8s/{ca.pem,kube-proxy*.pem} $node_cert_dir

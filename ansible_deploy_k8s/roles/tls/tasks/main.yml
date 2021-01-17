@@ -1,4 +1,8 @@
 ---
+- name: 获取当前路径
+  shell: pwd | sed 's#roles/tls##'
+  register: root_dir
+
 - name: 创建证书目录
   file: dest={{ item }} state=directory
   with_items:
@@ -11,7 +15,7 @@
 - name: 准备etcd证书请求文件
   template: src=etcd/{{ item }} dest={{local_cert_dir}}/etcd/{{ item.split('.')[:-1]|join('.') }}
   with_items:
-    - etcd-ca-config.json.j2
+    - ca-config.json.j2
     - etcd-ca-csr.json.j2
     - etcd-csr.json.j2
 
@@ -29,7 +33,12 @@
     - kube-proxy-csr.json.j2
 
 - name: 准备生成k8s证书脚本
-  copy: src=generate_cert.sh dest={{ local_cert_dir }} mode=u+x
+  template: src=generate_cert.sh.j2 dest={{ local_cert_dir }}/generate_cert.sh mode=u+x
 
 - name: 生成k8s证书
-  shell: cd {{ local_cert_dir }} && /bin/bash generate_cert.sh
+  script: creates={{item}} chdir={{ local_cert_dir }} {{ local_cert_dir }}/generate_cert.sh "{{root_dir.stdout}}"
+  with_items:
+    - "roles/master/files/k8s_cert/ca.pem"
+    - "roles/etcd/files/etcd_cert/etcd.pem"
+    - "roles/worker/files/k8s_cert/kube-proxy.pem"
+  # shell: cd {{ local_cert_dir }} && /usr/bin/bash generate_cert.sh {{root_dir.stdout}}

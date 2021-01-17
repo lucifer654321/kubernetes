@@ -5,14 +5,34 @@
   with_items:
     - "{{remote_k8s_work_dir}}/bootstrap"
 
+- name: 授权apiserver访问API服务
+  ignore_errors: yes
+  shell: |
+         kubectl create clusterrolebinding kube-apiserver:kubelet-apis \
+          --clusterrole system:kubelet-api-admin --user kube-apiserver
+
+- name: 创建bootstrap权限
+  ignore_errors: yes
+  shell: |
+         kubectl create clusterrolebinding kubelet-bootstrap \
+          --clusterrole system:node-bootstrapper \
+          --group system:bootstrappers
+
 - name: 分发脚本文件
-  template: src=bootstrap.sh.j2 dest={{remote_k8s_work_dir}}/bootstrap.sh
+  local_action: template src=bootstrap.sh.j2 dest=roles/bootstrap/files/bootstrap.sh
 
 - name: 分发自动approve csr配置文件
   copy: src=csr-crb.yaml dest={{remote_k8s_work_dir}}
 
-- name: 执行脚本文件
-  shell: cd {{remote_k8s_work_dir}} && /usr/bin/bash bootstrap.sh
+- name: 创建RBAC
+  ignore_errors: yes
+  shell: |
+         cd {{remote_k8s_work_dir}} && kubectl apply -f csr-crb.yaml
 
-- name: 将创建的bootstrap.kubeconfig文件传回本地
-  synchronize: src={{ k8s_work_dir }}/bootstrap/ dest={{local_bootstrap_dir}} mode=pull
+- name: 执行脚本文件
+  script:
+    creates: "{{remote_k8s_work_dir}}/bootstrap/kubelet-bootstrap-{{hostvars[item].node_name}}.kubeconfig"
+    chdir: "{{remote_k8s_work_dir}}"
+    cmd: roles/bootstrap/files/bootstrap.sh
+  with_items:
+    - "{{groups.k8s}}"

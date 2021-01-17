@@ -25,7 +25,6 @@ KUBE_APISERVER_OPTS="--logtostderr=false \
 --audit-log-maxsize=100 \
 --audit-log-truncate-enabled=true \
 --audit-log-path={{remote_k8s_logs_dir}}/k8s-audit.log \
---audit-log-path={{remote_k8s_logs_dir}}/k8s-audit.log \
 --audit-policy-file={{remote_k8s_conf_dir}}/audit-policy.yaml \
 --profiling \
 --anonymous-auth=false \
@@ -37,7 +36,7 @@ KUBE_APISERVER_OPTS="--logtostderr=false \
 --requestheader-group-headers=X-Remote-Group \
 --requestheader-username-headers=X-Remote-User \
 --service-account-key-file={{remote_k8s_cert_dir}}/sa.pub \
---authorization-mode=RBAC,Node \
+--authorization-mode=Node,RBAC \
 --runtime-config=api/all=true \
 --enable-admission-plugins=NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,DefaultTolerationSeconds,NodeRestriction,ResourceQuota  \
 --apiserver-count=3 \

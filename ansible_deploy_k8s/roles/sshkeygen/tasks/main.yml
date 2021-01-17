@@ -17,24 +17,22 @@
 - name: 将密钥从远端复制至本地
   fetch:
     src: /root/.ssh/id_rsa.pub
-    dest: {{ ssh_dir }}
+    dest: "{{local_ssh_dir}}"
   when: inventory_hostname in groups.master
 
+- name: 创建本地文件
+  local_action: file dest="{{local_ssh_dir}}/authorized_keys" state=touch
+
 - name: 将公钥追加到同一个文件
-  #  local_action: shell find {{ ssh_dir }}/{{ inventory_hostname }}/* -type f -exec sh -c 'cat {}>> {{ ssh_dir }}/authorized_keys' \;
-  local_action:
-    file: dest={{local_ssh_dir}}/authorized_keys state=touch
-    lininfile:
-      dest: "{{local_ssh_dir}}/authorized_keys"
-      line: "{{lookup('file', '{{item}}')}}"
-    with_items:
-      - "{{ocal_ssh_dir}}/{{inventory_hostname}}/root/.ssh/id_rsa.pub"
+  local_action: lineinfile dest="{{local_ssh_dir}}/authorized_keys" line="{{lookup('file', '{{item}}')}}"
+  with_items:
+    - "{{local_ssh_dir}}/{{inventory_hostname}}/root/.ssh/id_rsa.pub"
   when: inventory_hostname in groups.master
 
 - name: 配置互信
   authorized_key:
     user: root
-    key: "{{ lookup('file', {{ local_ssh_dir }}/authorized_keys) }}"
+    key: "{{ lookup('file', '{{ local_ssh_dir }}/authorized_keys') }}"
     path: '/root/.ssh/authorized_keys'
     manage_dir: no
     state: present
